@@ -24,8 +24,9 @@
 	LZFile.fn = LZFile.prototype;
 
 	LZFile.fn._defaultOptions = {
-		dragDrop: true, // 是否可以拖拽
+		dragDrop: false, // 是否可以拖拽
 		url: '', //action url
+		max: 9,//文件数量上线     添加图片上限值，最大可添加图片数量 by mumutoy
 		onSelected: noop, //选择文件后调用
 		onDeleted: noop, //删除时调用
 		onDragOver: noop, //拖动时调用
@@ -40,7 +41,7 @@
 	 * [_initUi 初始化UI]
 	 */
 	LZFile.fn._initUi = function() {
-		this.fileInput = $('<div class="item item-add"><input class="uploadFile" type="file" name="file" multiple="" accept="image/*"></div>');
+		this.fileInput = $('<div class="item item-add"><input class="uploadFile" type="file" name="file[]" multiple="" accept="image/*"></div>');
 		this.el.append(this.fileInput);
 	}
 
@@ -63,7 +64,13 @@
 				$item = $t.closest(".item");
 				index = $item.attr('data-index');
 				this.delFile(index);
-				$item.remove()
+				$item.remove();
+				if (this.opts.onDeleted != noop) {	//修复删除时触发事件  by mumutoy
+					this.opts.onDeleted();
+				}
+				if(this._files.length < this.opts.max){
+					$('.item-add').css('display','block');
+				}
 			}
 		}.bind(this));
 		if (this.opts.dragDrop) {
@@ -101,7 +108,7 @@
 		if (!this._files)
 			this._files = [];
 		for (var i = 0; i < files.length; i++) {
-			if (files[i].type.indexOf("image") > -1) {
+			if (files[i].type.indexOf("image") > -1  && this._files.length < this.opts.max) {
 				files[i].index = i;
 				this._files.push(files[i]);
 			}
@@ -136,13 +143,18 @@
 			if (this.opts.onSelected != noop) {
 				this.opts.onSelected(files);
 			}
+			if(this._files.length >= this.opts.max){
+				$('.item-add').css('display','none');
+			}
 		} else {
 			if (files[this.level]) {
 				var reader = new FileReader();
 				reader.onloadend = function() {
+					
 					this.html += '<div class="item" data-index="' + this.level + '"><img src="' + reader.result + '" /><em class="close"></em></div>'
 					this.level++;
 					this._refreshDom(files);
+					
 				}.bind(this);
 
 				reader.readAsDataURL(files[this.level]);
@@ -198,7 +210,7 @@
 		//}
 		var formData = new FormData();
 		for (var i = 0; i < this._files.length; i++) {
-			formData.append('file', this._files[i]);
+			formData.append('file[]', this._files[i]);
 		}
 		$.ajax({
 			url: self.opts.url,
